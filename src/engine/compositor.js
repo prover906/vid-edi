@@ -776,7 +776,7 @@ export class Compositor {
       }
       gl.pass(gl.program('present', PRESENT_FS), { u_src: out, u_bg: opts.background ?? 0, u_check: Math.max(4, 10 * scale) }, null);
       if (this.wantScopes && opts.scopes !== false) {
-        const sw = Math.min(W, 256), sh = Math.max(1, Math.round((sw * H) / W));
+        const sw = Math.min(W, 384), sh = Math.max(1, Math.round((sw * H) / W));
         const small = gl.target(sw, sh, { format: 'rgba8' });
         gl.pass(gl.program('down', DOWN_FS), { u_src: out }, small);
         this.scopeData = { w: sw, h: sh, data: gl.readPixels(small, sw, sh) };

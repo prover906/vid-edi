@@ -90,6 +90,7 @@ On the start screen, choose **Open Sample Project** to try it without your own m
   - Basic Correction (Input LUT `.cube`, white balance, tone, saturation, Auto) and Creative (Looks, faded film, sharpen, vibrance, tint wheels).
   - RGB Curves, Hue Saturation curves and three-way Color Wheels.
   - HSL Secondary and Vignette.
+  - With no clip selected, the panel targets the topmost clip under the playhead.
 - **Lumetri Scopes**: Waveform (Luma or RGB), RGB Parade, Vectorscope YUV and Histogram.
 
 ### Graphics and captions

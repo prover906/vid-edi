@@ -32,7 +32,12 @@ class LumetriPanel {
     this.root.append(this.head, this.body);
     app.bus.on('selection:changed sequence:activated', () => this.render());
     app.bus.on('project:changed', (e) => (e && e.live ? this.refreshValues() : this.render()));
-    app.bus.on('time:changed', () => this.refreshValues());
+    app.bus.on('time:changed', () => {
+      // With nothing selected the panel follows the playhead (Premiere behavior).
+      const c = this.target();
+      if ((c && c.id) !== this.lastTarget) this.render();
+      else this.refreshValues();
+    });
   }
 
   target() {
@@ -42,7 +47,14 @@ class LumetriPanel {
       const f = findClip(seq, id);
       if (f && f.kind === 'video') return f.clip;
     }
-    // fallback: topmost video clip at playhead on targeted track
+    // Fallback: the topmost enabled video clip under the playhead.
+    const f = seq.playhead;
+    for (let i = seq.videoTracks.length - 1; i >= 0; i--) {
+      const t = seq.videoTracks[i];
+      if (t.hidden) continue;
+      const c = t.clips.find((c) => c.enabled !== false && f >= c.start && f < clipEnd(c));
+      if (c) return c;
+    }
     return null;
   }
 
@@ -122,8 +134,9 @@ class LumetriPanel {
     this.body.innerHTML = '';
     this.updaters = [];
     const clip = this.target();
+    this.lastTarget = clip && clip.id;
     if (!clip) {
-      this.body.appendChild(h('div.ec-empty', 'Select a video clip in the Timeline to color correct it.'));
+      this.body.appendChild(h('div.ec-empty', 'Select a video clip in the Timeline, or move the playhead over one, to color correct it.'));
       return;
     }
     const fx = this.fx(clip);
@@ -678,10 +691,12 @@ class ScopesPanel {
         const i = ((hh - 1 - y) * w + x) * 4;
         const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
         const plot = (val, part, ch) => {
-          const px = Math.floor(((x + 0.5) / w) * (PW / parts) + (part * PW) / parts);
-          const py = Math.floor((1 - val) * (PH - 1));
-          const o = (py * PW + px) * 3;
-          buf[o + ch] += 1;
+          // Spread each sample column over the display columns it covers so the trace has no gaps.
+          const off = (part * PW) / parts, span = PW / parts;
+          const px0 = Math.floor((x / w) * span + off);
+          const px1 = Math.max(px0 + 1, Math.floor(((x + 1) / w) * span + off));
+          const py = Math.floor((1 - clamp(val, 0, 1)) * (PH - 1));
+          for (let px = px0; px < px1 && px < PW; px++) buf[(py * PW + px) * 3 + ch] += 1;
         };
         if (mode === 'waveform') {
           const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
