@@ -354,9 +354,49 @@ export function kfTimeToFrame(clip, t, fps) {
   return clip.start + ((t - clip.in) / clip.speed) * fps;
 }
 
+// ---- Time Remapping (speed ramps) ----
+const remapCache = new Map();
+export function timeRemapParam(clip) {
+  const fx = clip.effects && clip.effects.find((e) => e.type === 'timeRemap');
+  if (!fx || fx.enabled === false) return null;
+  const p = fx.params.speed;
+  return p && p.kf && p.kf.length ? p : null;
+}
+// Source seconds advanced (before clip.speed) after `local` timeline seconds of a remapped clip.
+export function remapIntegral(clip, p, local, fps) {
+  const dt = 1 / 120;
+  const key = clip.id + '|' + clip.in + '|' + clip.speed + '|' + JSON.stringify(p.kf);
+  let e = remapCache.get(clip.id);
+  const total = Math.max(0, local) + 1;
+  if (!e || e.key !== key || e.len < total) {
+    const len = Math.max(total, clip.dur / fps + 2);
+    const n = Math.ceil(len / dt) + 2;
+    const table = new Float64Array(n);
+    let prev = Math.max(0, evalParam(p, clip.in) / 100);
+    for (let i = 1; i < n; i++) {
+      const sp = Math.max(0, evalParam(p, clip.in + i * dt * clip.speed) / 100);
+      table[i] = table[i - 1] + ((prev + sp) / 2) * dt;
+      prev = sp;
+    }
+    e = { key, table, len };
+    remapCache.set(clip.id, e);
+    if (remapCache.size > 200) remapCache.delete(remapCache.keys().next().value);
+  }
+  const x = local / dt;
+  if (x <= 0) return (local * Math.max(0, evalParam(p, clip.in))) / 100;
+  const i = Math.min(e.table.length - 2, Math.floor(x));
+  const f = x - i;
+  return e.table[i] + (e.table[i + 1] - e.table[i]) * f;
+}
+
 // Source media time for a timeline frame (may extend into handles for transitions).
 export function clipSourceTime(clip, frame, fps, mediaDur) {
   if (clip.frameHold != null) return clip.frameHold;
+  const rp = timeRemapParam(clip);
+  if (rp) {
+    const t = clip.in + remapIntegral(clip, rp, (frame - clip.start) / fps, fps);
+    return mediaDur && mediaDur > 0 ? clamp(t, 0, Math.max(0, mediaDur - 0.001)) : Math.max(0, t);
+  }
   const local = ((frame - clip.start) / fps) * clip.speed;
   let t;
   if (clip.reverse) t = clip.in + (clip.dur / fps) * clip.speed - local - (1 / fps) * clip.speed;

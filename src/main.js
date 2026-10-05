@@ -167,7 +167,7 @@ const start = {
             app.project.items.length ? h('button.btn', { onclick: () => this.hide() }, 'Continue: ' + (app.project.name || 'Untitled')) : null,
           ),
         ),
-        h('div.start-recent', h('h3', 'Recent'), list, h('div.feature-grid', ...['Multi-track timeline', 'Ripple, roll, slip, slide, razor', '70+ GPU video effects', '50+ transitions', 'Lumetri Color + scopes', 'Keyframes & masks', 'Titles & captions', 'Audio mixer & effects', 'Nested sequences', 'MP4 / WebM export'].map((f) => h('div', f)))),
+        h('div.start-recent', h('h3', 'Recent'), list, h('div.feature-grid', ...['Multi-track timeline', 'Ripple, roll, slip, slide, razor', '75 GPU video effects', '38 video transitions', 'Lumetri Color + scopes', 'Keyframes & masks', 'Titles & captions', 'Audio mixer & effects', 'Nested sequences', 'MP4 / WebM export'].map((f) => h('div', f)))),
       ),
     );
     el.addEventListener('dragover', (e) => e.preventDefault());

@@ -5,9 +5,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "start": "node test/server.mjs 8080",
     "check": "node scripts/check.mjs",
-    "test": "node test/smoke.mjs"
+    "test": "node scripts/check.mjs && node test/smoke.mjs && node test/ui.mjs"
   },
   "license": "MIT"
 }

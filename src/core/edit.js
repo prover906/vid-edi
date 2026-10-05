@@ -822,12 +822,12 @@ export function nestClips(seq, ids, name) {
 }
 
 // ---------- clipboard ----------
-export function copyClips(seq, ids) {
+export function copyClips(seq, ids, { absolute = false } = {}) {
   const entries = ids.map((id) => findClip(seq, id)).filter(Boolean);
   if (!entries.length) return null;
-  const minStart = Math.min(...entries.map((e) => e.clip.start));
-  const vMin = Math.min(...entries.filter((e) => e.kind === 'video').map((e) => e.index), 99);
-  const aMin = Math.min(...entries.filter((e) => e.kind === 'audio').map((e) => e.index), 99);
+  const minStart = absolute ? 0 : Math.min(...entries.map((e) => e.clip.start));
+  const vMin = absolute ? 0 : Math.min(...entries.filter((e) => e.kind === 'video').map((e) => e.index), 99);
+  const aMin = absolute ? 0 : Math.min(...entries.filter((e) => e.kind === 'audio').map((e) => e.index), 99);
   return {
     type: 'clips',
     fps: seq.settings.fps,
@@ -836,11 +836,11 @@ export function copyClips(seq, ids) {
   };
 }
 
-export function pasteClips(seq, data, at, { insert = false } = {}) {
+export function pasteClips(seq, data, at, { insert = false, baseV: bV = null, baseA: bA = null } = {}) {
   if (!data || data.type !== 'clips') return [];
   const tgtV = seq.videoTracks.findIndex((t) => t.target && !t.locked);
   const tgtA = seq.audioTracks.findIndex((t) => t.target && !t.locked);
-  const baseV = tgtV >= 0 ? tgtV : 0, baseA = tgtA >= 0 ? tgtA : 0;
+  const baseV = bV ?? (tgtV >= 0 ? tgtV : 0), baseA = bA ?? (tgtA >= 0 ? tgtA : 0);
   const linkMap = new Map(), idMap = new Map();
   const made = data.clips.map((d) => {
     let lk = null;

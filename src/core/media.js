@@ -129,8 +129,14 @@ export async function probeItem(item, file) {
   }
   // audio decode
   try {
+    if (file.size > 1.9 * 1024 * 1024 * 1024) throw new Error('too large to decode audio in the browser');
+    let hint = item.duration || 0;
+    if (item.kind === 'audio' && !hint) {
+      const a = await loadVideoMeta(rt.url);
+      hint = a && isFinite(a.duration) ? a.duration : 0;
+    }
     const ab = await file.arrayBuffer();
-    const buf = await audio.decode(ab);
+    const buf = await audio.decode(ab, hint);
     rt.audioBuffer = buf;
     rt.peaks = computePeaks(buf, 200);
     item.hasAudio = buf.length > 0;
@@ -142,6 +148,7 @@ export async function probeItem(item, file) {
   } catch (e) {
     item.hasAudio = false;
     if (item.kind === 'audio') throw new Error('Unsupported audio format: ' + file.name);
+    if (/too large/.test(e.message)) app.toast(file.name + ': audio not imported (' + e.message + ')', 'warn', 5000);
   }
   if (item.kind === 'video') {
     const fps = await estimateFps(rt.url);

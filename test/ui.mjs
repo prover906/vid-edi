@@ -354,6 +354,71 @@ await page.waitForTimeout(400);
 await shot('ui-10-captions');
 await ev(() => window.__ve.app.services.layout.load('Editing'));
 
+// 19. Trim tools via mouse: ripple (B), rolling (N), rate stretch (R), slip (Y), slide (U)
+await ev(() => {
+  const { app, actions } = window.__ve;
+  const it = app.project.items.find((i) => i.name === 'clip1.webm');
+  it.inPoint = null;
+  it.outPoint = null;
+  const s = actions.createSequence({ name: 'Tools', width: 640, height: 360, fps: 30 });
+  actions.placeItems([it], 0, { vTrack: 0, aTrack: 0 });
+  // trim first instance to 60 frames so it has handles, place two more
+  const E = window.__ve.E;
+  app.edit('prep', () => {
+    const v = s.videoTracks[0].clips[0];
+    E.trimEdge(s, [v.id, ...s.audioTracks[0].clips.map((c) => c.id)], 'out', -120, {});
+    E.trimEdge(s, [v.id, ...s.audioTracks[0].clips.map((c) => c.id)], 'in', 20, { ripple: true });
+  });
+  actions.placeItems([it], 40, { vTrack: 0, aTrack: 0 });
+  app.edit('prep2', () => {
+    const v = s.videoTracks[0].clips[1];
+    E.trimEdge(s, [v.id, ...s.audioTracks[0].clips.filter((c) => c.linkId === v.linkId).map((c) => c.id)], 'in', 30, { ripple: true });
+    E.trimEdge(s, [v.id, ...s.audioTracks[0].clips.filter((c) => c.linkId === v.linkId).map((c) => c.id)], 'out', -60, {});
+  });
+  actions.placeItems([it], 130, { vTrack: 0, aTrack: 0 });
+  const t = window.__ve.timeline;
+  t.view.zoom = 2.2;
+  t.view.scroll = 0;
+  t.requestDraw();
+});
+await page.waitForTimeout(200);
+const layout0 = await ev(() => window.__ve.app.seq.videoTracks[0].clips.map((c) => [c.start, c.dur, +c.in.toFixed(3), +c.speed.toFixed(3)]));
+console.log('tools layout:', JSON.stringify(layout0));
+g = await tl();
+const yv = rowY(g, 'video', 0);
+const dragX = async (fromFrame, dxPx, key) => {
+  if (key) await page.keyboard.press(key);
+  const x = fx(g, fromFrame);
+  await page.mouse.move(x, yv);
+  await page.mouse.down();
+  await page.mouse.move(x + dxPx / 2, yv, { steps: 3 });
+  await page.mouse.move(x + dxPx, yv, { steps: 3 });
+  await page.mouse.up();
+  await page.waitForTimeout(60);
+  return ev(() => window.__ve.app.seq.videoTracks[0].clips.map((c) => [c.start, c.dur, +c.in.toFixed(3), +c.speed.toFixed(3)]));
+};
+// ripple: drag out edge of clip0 (end=40) left by 10 frames -> clip0 dur 30, following clips shift -10
+let L = await dragX(layout0[0][0] + layout0[0][1] - 0.3, -10 * 2.2, 'KeyB');
+check('ripple edit tool (B)', L[0][1] === layout0[0][1] - 10 && L[1][0] === layout0[1][0] - 10, JSON.stringify(L));
+// rolling: edit point between clip0 and clip1 moved right by 5 frames
+const Lr0 = L;
+L = await dragX(Lr0[1][0] + 0.3, 5 * 2.2, 'KeyN');
+check('rolling edit tool (N)', L[0][1] === Lr0[0][1] + 5 && L[1][0] === Lr0[1][0] + 5 && L[1][1] === Lr0[1][1] - 5, JSON.stringify(L));
+// rate stretch: stretch clip2 out edge by +30 frames (no next clip)
+const Ls0 = L;
+L = await dragX(Ls0[2][0] + Ls0[2][1] - 0.3, 30 * 2.2, 'KeyR');
+check('rate stretch tool (R)', L[2][1] === Ls0[2][1] + 30 && L[2][3] < 1, JSON.stringify(L));
+// slip: drag clip1 body right by 10 frames -> in point decreases by 10/30 s
+const Lp0 = L;
+L = await dragX(Lp0[1][0] + Lp0[1][1] / 2, 10 * 2.2, 'KeyY');
+check('slip tool (Y)', L[1][0] === Lp0[1][0] && Math.abs(L[1][2] - (Lp0[1][2] - 10 / 30)) < 0.01, JSON.stringify(L));
+// slide: drag clip1 body right by 5 frames (next clip has no head handles, so only rightward slides are possible)
+const Lsl0 = L;
+L = await dragX(Lsl0[1][0] + Lsl0[1][1] / 2, 5 * 2.2, 'KeyU');
+check('slide tool (U)', L[1][0] === Lsl0[1][0] + 5 && L[0][1] === Lsl0[0][1] + 5 && L[1][1] === Lsl0[1][1] && L[2][0] === Lsl0[2][0] + 5, JSON.stringify(L));
+await page.keyboard.press('KeyV');
+await shot('ui-11-tools');
+
 console.log('\nConsole errors:', errors.length ? '\n' + errors.join('\n') : 'none');
 if (errors.length) failures++;
 await browser.close();

@@ -638,11 +638,29 @@ class TimelinePanel {
       let name = c.name || (c.graphic ? 'Graphic' : 'Clip');
       if (c.speed !== 1 || c.reverse) name += ` [${c.reverse ? '-' : ''}${Math.round(c.speed * 10000) / 100}%]`;
       if (c.frameHold != null) name += ' [Frame Hold]';
+      if (c.effects.some((e) => e.type === 'timeRemap' && e.params.speed && e.params.speed.kf)) name += ' [Time Remapping]';
       if (offline) name = 'Media Offline — ' + name;
       ctx.fillText(name, tx, y + 11);
       if (c.linkId == null && item && (item.type === 'media' && item.kind === 'video' && item.hasAudio)) {
         const tw = ctx.measureText(name).width;
         ctx.fillText(c.kind === 'video' ? ' [V]' : ' [A]', tx + tw, y + 11);
+      }
+    }
+    // clip (source item) markers
+    if (item && item.markers && item.markers.length) {
+      for (const m of item.markers) {
+        const f = c.start + ((m.time - c.in) / c.speed) * fps;
+        if (f < c.start || f > clipEnd(c)) continue;
+        const mx = this.f2x(f);
+        ctx.fillStyle = LABEL_COLORS[m.color] || '#5bbf5b';
+        ctx.beginPath();
+        ctx.moveTo(mx - 4, y + 1);
+        ctx.lineTo(mx + 4, y + 1);
+        ctx.lineTo(mx + 4, y + 6);
+        ctx.lineTo(mx, y + 9);
+        ctx.lineTo(mx - 4, y + 6);
+        ctx.closePath();
+        ctx.fill();
       }
     }
     // rubber band

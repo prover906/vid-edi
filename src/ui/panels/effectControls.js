@@ -138,16 +138,39 @@ class EffectControls {
       const key = clip.id + fx.id;
       const exp = this.isExpanded(key, false);
       const tw = h('span.ec-tw', icon(exp ? 'chevDown' : 'chevRight'));
-      const hdr = this.makeRow('ec-fx', h('div.ec-fxname', tw, h('span.ec-fxbadge.off', ''), h('span', def.name)));
+      const hdr = this.makeRow('ec-fx', h('div.ec-fxname', tw, h('span.ec-fxbadge' + (fx.params.speed?.kf ? '' : '.off'), 'fx'), h('span.ec-fxtitle', def.name)));
       hdr.querySelector('.ec-fxname').onclick = () => {
         this.expanded.set(key, !exp);
         this.render();
       };
       wrap.appendChild(hdr);
       if (exp) {
-        const sp = hotText({ value: clip.speed * 100, precision: 2, unit: '%', min: 0.01, max: 10000, onCommit: (v) => app.edit('Speed', () => E.setSpeed(this.seq, clip.id, v)) });
-        wrap.appendChild(this.makeRow('ec-param', h('div.ec-pname', h('span.ec-sw-pad'), h('span', 'Speed')), null));
-        wrap.lastChild.querySelector('.ec-l').appendChild(h('div.ec-val', sp.el));
+        const sp = fx.params.speed || (fx.params.speed = { v: 100, kf: null });
+        if (!sp.kf) sp.v = Math.round(clip.speed * 10000) / 100;
+        const pd = def.params[0];
+        this.paramRow(wrap, clip, pd, {
+          get: () => this.fxOf(clip.id, fx.id)?.params.speed,
+          key: fx.id + '|speed',
+          label: 'Speed',
+          fx,
+          // Without keyframes, Speed edits the clip's constant speed (like Speed/Duration).
+          set: (v) => {
+            const p = this.fxOf(clip.id, fx.id).params.speed;
+            if (p.kf) return false;
+            E.setSpeed(this.seq, clip.id, Math.max(1, v));
+            p.v = v;
+            return true;
+          },
+          // Time remapping keyframes drive speed directly, so the constant clip speed resets to 100%.
+          beforeToggle: () => {
+            const c = findClip(this.seq, clip.id)?.clip;
+            const p = this.fxOf(clip.id, fx.id).params.speed;
+            if (c && !p.kf) {
+              p.v = c.speed * 100;
+              c.speed = 1;
+            }
+          },
+        });
       }
       return;
     }
@@ -375,7 +398,10 @@ class EffectControls {
           const ok = await confirmDialog('This action will delete existing keyframes. Do you want to continue?', { title: 'Warning', ok: 'OK' });
           if (!ok) return;
         }
-        app.edit('Toggle Animation', () => toggleAnimation(o.get(), this.kfTime(clip), pd));
+        app.edit('Toggle Animation', () => {
+          if (o.beforeToggle) o.beforeToggle();
+          toggleAnimation(o.get(), this.kfTime(clip), pd);
+        });
       });
     const label = h('span.ec-plabel' + (enabled ? '' : '.disabled'), o.label);
     const val = this.valueWidget(clip, pd, o, enabled);
@@ -535,7 +561,7 @@ class EffectControls {
         }
         const p = o.get();
         if (!p) return;
-        setParamValue(p, this.kfTime(clip), v);
+        if (!(o.set && o.set(v))) setParamValue(p, this.kfTime(clip), v);
         app.bus.emit('project:changed', { live: true });
       },
       end: () => {

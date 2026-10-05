@@ -67,13 +67,17 @@ export class AudioEngine {
   }
 
   // Decoding context (works before a user gesture).
-  get decodeCtx() {
-    if (!this._dctx) this._dctx = new OfflineAudioContext(2, 1, 48000);
-    return this._dctx;
+  // Decoding contexts (work before a user gesture), one per sample rate.
+  decodeCtx(rate = 48000) {
+    this._dctx = this._dctx || new Map();
+    if (!this._dctx.has(rate)) this._dctx.set(rate, new OfflineAudioContext(2, 1, rate));
+    return this._dctx.get(rate);
   }
 
-  async decode(arrayBuffer) {
-    return await this.decodeCtx.decodeAudioData(arrayBuffer);
+  // Long media is decoded at a lower rate to keep memory reasonable.
+  async decode(arrayBuffer, durationHint = 0) {
+    const rate = durationHint > 3600 ? 16000 : durationHint > 1800 ? 24000 : 48000;
+    return await this.decodeCtx(rate).decodeAudioData(arrayBuffer);
   }
 
   // AudioBuffer for an item (null if none).

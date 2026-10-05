@@ -248,6 +248,21 @@ const exp = await page.evaluate(async () => {
 check('WebM/VP9 export produces file', exp.size > 1000, JSON.stringify(exp));
 check('WAV export produces file', exp.wav > 1000);
 
+
+// ---------- scene edit detection ----------
+const scenes = await page.evaluate(async () => {
+  const { app, actions } = window.__ve;
+  const { importFiles } = await import('/src/core/media.js');
+  const f = new File([await (await fetch('/test/fixtures/scenes.webm')).blob()], 'scenes.webm', { type: 'video/webm' });
+  const [it] = await importFiles([f]);
+  const s = actions.createSequence({ name: 'Scenes', width: 320, height: 180, fps: 30 });
+  const placed = actions.placeItems([it], 0, { vTrack: 0, aTrack: null });
+  app.selectClips([placed[0].id]);
+  await actions.sceneEditDetection([placed[0].id], { cut: true, markers: true, sensitivity: 50 });
+  return { cuts: s.videoTracks[0].clips.map((c) => c.start), markers: s.markers.map((m) => m.frame) };
+});
+check('scene edit detection finds 2 cuts', scenes.cuts.length === 3 && Math.abs(scenes.cuts[1] - 45) <= 1 && Math.abs(scenes.cuts[2] - 90) <= 1, JSON.stringify(scenes));
+
 // ---------- persistence ----------
 const saved = await page.evaluate(async () => {
   const { persist, app } = window.__ve;
@@ -282,7 +297,7 @@ await page.reload();
 await page.waitForFunction(() => window.__ve && window.__ve.app);
 await page.waitForTimeout(2500);
 const after = await page.evaluate(() => ({ id: window.__ve.app.project.id, media: window.__ve.app.project.items.filter((i) => i.type === 'media').map((i) => !i.offline) }));
-check('project restored after reload with media', after.id === reload && after.media.length === 4 && after.media.every(Boolean), JSON.stringify(after));
+check('project restored after reload with media', after.id === reload && after.media.length === 5 && after.media.every(Boolean), JSON.stringify(after));
 
 console.log('\nConsole errors:', errors.length ? '\n' + errors.join('\n') : 'none');
 if (errors.length) failures++;

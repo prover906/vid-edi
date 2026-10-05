@@ -90,7 +90,7 @@ reg({
   id: 'timeRemap',
   name: 'Time Remapping',
   intrinsic: true,
-  params: [{ id: 'speed', name: 'Speed', type: 'speed', default: 100, animatable: false }],
+  params: [{ id: 'speed', name: 'Speed', type: 'number', default: 100, min: 0, max: 10000, uiMax: 1000, unit: '%', step: 0.5, precision: 2 }],
   render: (ctx) => ctx.input,
 });
 

@@ -5,7 +5,7 @@ import { GLContext } from './gl.js';
 import { EFFECT_HEADER, gaussianBlur, COPY_FS } from './effectKit.js';
 import { getEffectDef, getTransitionDef } from '../core/registry.js';
 import {
-  findItem, clipKfTime, clipSourceTime, evalEffectParams, clipAtFrame, transitionRange, itemSourceDuration,
+  findItem, clipKfTime, clipSourceTime, evalEffectParams, clipAtFrame, transitionRange, itemSourceDuration, timeRemapParam,
 } from '../core/model.js';
 import { evalParam } from '../core/keyframes.js';
 import { framesToTC } from '../core/timecode.js';
@@ -277,7 +277,9 @@ export class Compositor {
         const item = findItem(project, clip.itemId);
         if (!item) continue;
         if (item.type === 'media' && item.kind === 'video' && !item.offline) {
-          out.push({ key: prefix + clip.id, item, t: effectiveSourceTime(project, clip, frame, fps), clip, speed: clip.speed, reverse: clip.reverse || clip.frameHold != null });
+          const rp = timeRemapParam(clip);
+          const speed = rp ? Math.max(0.0625, evalParam(rp, clipKfTime(clip, frame, fps)) / 100) : clip.speed;
+          out.push({ key: prefix + clip.id, item, t: effectiveSourceTime(project, clip, frame, fps), clip, speed, reverse: clip.reverse || clip.frameHold != null || (rp && evalParam(rp, clipKfTime(clip, frame, fps)) <= 0) });
         } else if (item.type === 'sequence') {
           const t = effectiveSourceTime(project, clip, frame, fps);
           this.collectNeeds(item, Math.floor(t * item.settings.fps + 1e-6), prefix + clip.id + '/', out, depth + 1);

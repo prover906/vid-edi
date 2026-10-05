@@ -672,6 +672,18 @@ export const actions = {
           app.toast('A sequence cannot be nested inside itself', 'warn');
           continue;
         }
+        if (it.type === 'sequence' && app.prefs.insertAsNest === false) {
+          // Insert the sequence's individual clips instead of a nested clip
+          const ids = allTracks(it).flatMap((t) => t.clips.map((c) => c.id));
+          const data = E.copyClips(it, ids, { absolute: true });
+          if (!data) continue;
+          if (video === false) data.clips = data.clips.filter((d) => d.kind !== 'video');
+          if (audio === false) data.clips = data.clips.filter((d) => d.kind !== 'audio');
+          const cs = E.pasteClips(s, data, pos, { insert, baseV: vTrack ?? 0, baseA: aTrack ?? 0 });
+          placed.push(...cs);
+          if (cs.length) pos = Math.max(...cs.map((c) => clipEnd(c)));
+          continue;
+        }
         const opts = { at: pos, mode: insert ? 'insert' : 'overwrite', vTrack: video !== false ? vTrack : null, aTrack: audio !== false ? aTrack : null };
         if (srcRange && items.length === 1) {
           opts.srcIn = srcRange.in;
@@ -1015,6 +1027,7 @@ export const actions = {
       { label: 'Label', submenu: () => labelMenu(clip.label, (n) => this.setLabel(n)) },
       { sep: true },
       { label: 'Speed/Duration…', kbd: MOD + '+R', action: () => this.speedDuration() },
+      { label: 'Scene Edit Detection…', disabled: !isV || !item || item.type !== 'media' || item.kind !== 'video', action: () => this.sceneEditDetectionDialog() },
       { label: 'Audio Gain…', kbd: 'G', disabled: isV && !multi, action: () => this.audioGainDialog() },
       { sep: true },
       { label: 'Add Frame Hold', disabled: !isV, action: () => this.addFrameHold(false) },
@@ -1051,6 +1064,106 @@ export const actions = {
       f.clip.name = item.name;
       f.clip.in = item.inPoint ?? 0;
     });
+  },
+
+  // ---------- scene edit detection ----------
+  sceneEditDetectionDialog() {
+    const s = needSeq();
+    if (!s) return;
+    const ids = selIds().filter((id) => {
+      const f = findClip(s, id);
+      const it = f && findItem(app.project, f.clip.itemId);
+      return f && f.kind === 'video' && it && it.type === 'media' && it.kind === 'video';
+    });
+    if (!ids.length) return app.toast('Select video clips to analyze', 'warn');
+    const opts = { cut: true, markers: false, sensitivity: 50 };
+    const sens = h('input', { type: 'range', min: 5, max: 95, value: 50, style: { width: '160px' } });
+    sens.oninput = () => (opts.sensitivity = +sens.value);
+    modal({
+      title: 'Scene Edit Detection',
+      body: h('div', { style: { width: '360px' } },
+        h('div', { style: { margin: '6px 0' } }, checkbox({ checked: true, label: 'Apply a cut at each detected cut point', onChange: (v) => (opts.cut = v) }).el),
+        h('div', { style: { margin: '6px 0' } }, checkbox({ checked: false, label: 'Generate sequence markers at each cut point', onChange: (v) => (opts.markers = v) }).el),
+        row('Sensitivity', sens),
+      ),
+      buttons: [{ label: 'Cancel' }, { label: 'Analyze', cta: true, action: () => { this.sceneEditDetection(ids, opts); } }],
+    });
+  },
+  async sceneEditDetection(ids, opts) {
+    const s = needSeq();
+    const fps = s.settings.fps;
+    const cv = document.createElement('canvas');
+    cv.width = 64;
+    cv.height = 36;
+    const cx = cv.getContext('2d', { willReadFrequently: true });
+    const allCuts = [];
+    for (const id of ids) {
+      const f = findClip(s, id);
+      if (!f) continue;
+      const clip = f.clip;
+      const item = findItem(app.project, clip.itemId);
+      const v = document.createElement('video');
+      v.muted = true;
+      v.preload = 'auto';
+      v.src = app.rt(item.id).url;
+      await new Promise((r) => { v.onloadeddata = r; v.onerror = r; setTimeout(r, 6000); });
+      if (v.readyState < 2) continue;
+      const sample = async (frame) => {
+        const t = clipSourceTime(clip, frame, fps, item.duration);
+        await new Promise((r) => { const d = () => { v.removeEventListener('seeked', d); r(); }; v.addEventListener('seeked', d); v.currentTime = t + 0.001; setTimeout(d, 1500); });
+        cx.drawImage(v, 0, 0, 64, 36);
+        const px = cx.getImageData(0, 0, 64, 36).data;
+        const hist = new Float32Array(48);
+        for (let i = 0; i < px.length; i += 4) {
+          hist[px[i] >> 4]++;
+          hist[16 + (px[i + 1] >> 4)]++;
+          hist[32 + (px[i + 2] >> 4)]++;
+        }
+        return hist;
+      };
+      const diff = (a, b) => {
+        let d = 0;
+        for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]);
+        return d / (64 * 36 * 6);
+      };
+      const thr = 0.55 - (opts.sensitivity / 100) * 0.45;
+      const step = Math.max(1, Math.round(fps / 6));
+      let prev = await sample(clip.start);
+      for (let fr = clip.start + step; fr < clip.start + clip.dur; fr += step) {
+        app.status(`Scene Edit Detection: ${clip.name} ${Math.round(((fr - clip.start) / clip.dur) * 100)}%`);
+        const cur = await sample(fr);
+        if (diff(prev, cur) > thr) {
+          // refine to the exact frame
+          let best = fr, bestD = 0, p2 = await sample(fr - step);
+          for (let k = fr - step + 1; k <= fr; k++) {
+            const h2 = await sample(k);
+            const dd = diff(p2, h2);
+            if (dd > bestD) {
+              bestD = dd;
+              best = k;
+            }
+            p2 = h2;
+          }
+          if (best > clip.start && best < clip.start + clip.dur) allCuts.push({ id, frame: best });
+        }
+        prev = cur;
+      }
+      v.removeAttribute('src');
+      v.load();
+    }
+    app.status('');
+    if (!allCuts.length) return app.toast('No scene changes detected', 'info');
+    app.edit('Scene Edit Detection', () => {
+      for (const c of allCuts.sort((a, b) => b.frame - a.frame)) {
+        if (opts.cut) {
+          const f = findClip(s, c.id);
+          const target = f ? allTracks(s).flatMap((t) => t.clips).find((x) => x.linkId === f.clip.linkId && x.start < c.frame && clipEnd(x) > c.frame && x.kind === 'video') || f.clip : null;
+          if (target) E.razorAt(s, target.id, c.frame, {});
+        }
+        if (opts.markers && !s.markers.some((m) => m.frame === c.frame)) s.markers.push({ id: uid('mk_'), frame: c.frame, duration: 0, name: 'Scene', comment: 'Detected cut', color: 'Yellow', type: 'Comment' });
+      }
+    });
+    app.toast(`Detected ${allCuts.length} scene change(s)`, 'ok');
   },
 
   // ---------- masks ----------

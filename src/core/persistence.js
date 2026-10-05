@@ -62,6 +62,7 @@ export const persist = {
       localStorage.setItem('videdi.currentProject', p.id);
       app.dirty = false;
       this.lastSaved = Date.now();
+      if (!this.recent.some((r) => r.id === p.id)) this.recent.unshift({ id: p.id, name: p.name, updated: Date.now() });
       app.bus.emit('saved');
       if (user) app.toast('Project saved to browser storage', 'ok', 1600);
     } catch (e) {
@@ -97,10 +98,14 @@ export const persist = {
     }
   },
 
+  recent: [],
+
   async listProjects() {
     try {
       const all = await tx('projects', 'readonly', (s) => s.getAll());
-      return (all || []).sort((a, b) => b.updated - a.updated);
+      const list = (all || []).sort((a, b) => b.updated - a.updated);
+      this.recent = list.map((r) => ({ id: r.id, name: r.name, updated: r.updated }));
+      return list;
     } catch (e) {
       return [];
     }
@@ -188,8 +193,17 @@ export const persist = {
     await tx('projects', 'readwrite', (s) => s.delete(id));
   },
 
-  async recentMenu() {
-    return [];
+  recentMenu() {
+    this.listProjects();
+    const items = this.recent.slice(0, 10).map((r) => ({
+      label: (r.name || 'Untitled') + (r.id === app.project.id ? '  (open)' : ''),
+      disabled: r.id === app.project.id,
+      action: async () => {
+        await this.saveNow(false);
+        await this.loadProjectById(r.id);
+      },
+    }));
+    return items.length ? items : [{ label: '(none)', disabled: true }];
   },
 
   saveAs() {
