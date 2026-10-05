@@ -1,0 +1,59 @@
+/* ---------- Timeline ---------- */
+.tl-root { background: var(--bg-panel); position: relative; }
+.tl-seqtabs { display: flex; gap: 2px; height: 24px; padding: 2px 6px 0; flex: none; overflow: hidden; }
+.tl-seqtab { display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 4px 4px 0 0; color: #9a9a9a; cursor: default; white-space: nowrap; font-size: 12px; }
+.tl-seqtab:hover { color: #ddd; }
+.tl-seqtab.active { color: #fff; background: #2c2c2c; }
+.tl-seqtab .x { color: #777; font-size: 14px; line-height: 1; padding: 0 2px; border-radius: 2px; }
+.tl-seqtab .x:hover { color: #fff; background: #444; }
+.tl-top { display: flex; height: 34px; flex: none; border-bottom: 1px solid #141414; }
+.tl-topleft { width: 190px; flex: none; display: flex; flex-direction: column; justify-content: center; padding: 0 6px; gap: 0; border-right: 1px solid #141414; }
+.tl-topleft .tl-tc { font-size: 15px; line-height: 15px; }
+.tl-toolbar { display: flex; gap: 0; margin-left: -4px; }
+.tl-toolbar .ibtn { width: 22px; height: 16px; }
+.tl-toolbar .ibtn svg { width: 13px; height: 13px; }
+.tl-ruler-wrap { flex: 1; position: relative; min-width: 0; }
+.tl-ruler { position: absolute; left: 0; top: 0; cursor: pointer; }
+.tl-main { flex: 1; display: flex; min-height: 0; }
+.tl-headers { width: 190px; flex: none; position: relative; overflow: hidden; background: #1c1c1c; border-right: 1px solid #141414; }
+.tl-hregion { position: absolute; left: 0; right: 0; overflow: hidden; }
+.tl-divider { position: absolute; left: 0; right: 0; background: #121212; cursor: row-resize; z-index: 2; }
+.tl-divider:hover { background: #2d5f99; }
+.tl-canvas-wrap { flex: 1; position: relative; min-width: 0; overflow: hidden; }
+.tl-canvas { position: absolute; left: 0; top: 0; outline: none; }
+.tl-th {
+  position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 1px; padding: 0 4px 0 2px;
+  background: #262626; border-bottom: 1px solid #161616; overflow: hidden;
+}
+.tl-th.mix { background: #2a2a2a; gap: 8px; padding-left: 10px; }
+.tl-th.caption { background: #2a2620; top: 0; z-index: 1; gap: 6px; padding-left: 8px; border-bottom: 1px solid #141414; }
+.tl-th.locked { background: repeating-linear-gradient(135deg, #262626 0 8px, #2c2c2c 8px 16px); }
+.tl-th .ibtn { width: 20px; height: 20px; flex: none; color: #8d8d8d; }
+.tl-th .ibtn svg { width: 13px; height: 13px; }
+.tl-th .ibtn.on { color: #d0d0d0; }
+.tl-th-patch { width: 22px; height: 18px; border-radius: 2px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; flex: none; border: 1px solid transparent; }
+.tl-th-patch:hover { border-color: #555; }
+.tl-th-patch.on { background: #2d6ccf; }
+.tl-th-target {
+  width: 26px; height: 18px; border-radius: 2px; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;
+  color: #aaa; background: #333; cursor: pointer; flex: none; border: 1px solid #3c3c3c;
+}
+.tl-th-target.on { background: #2d6ccf; border-color: #4b8ae8; color: #fff; }
+.tl-th-name { flex: 1; min-width: 0; color: #bdbdbd; font-size: 11.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-left: 4px; }
+.tl-th-vol { position: absolute; left: 50px; bottom: 6px; font-size: 11px; display: flex; gap: 6px; }
+.tl-ms { width: 19px; height: 18px; border-radius: 2px; border: 1px solid #454545; background: #2e2e2e; color: #9a9a9a; font-size: 10px; font-weight: 700; cursor: pointer; padding: 0; flex: none; }
+.tl-ms:hover { color: #fff; }
+.tl-ms.on.mute { background: #2fa56a; color: #fff; border-color: #2fa56a; }
+.tl-ms.on.solo { background: #e0b520; color: #111; border-color: #e0b520; }
+.tl-th-grip { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; cursor: row-resize; }
+.tl-th-grip.top { top: 0; bottom: auto; }
+.tl-mixvol { font-size: 11px; }
+.tl-bottom { height: 16px; display: flex; flex: none; border-top: 1px solid #141414; }
+.tl-bottom-left { width: 190px; flex: none; }
+.tl-hscroll { flex: 1; position: relative; background: #1a1a1a; }
+.tl-hthumb { position: absolute; top: 3px; bottom: 3px; background: #4a4a4a; border-radius: 5px; cursor: grab; min-width: 24px; }
+.tl-hthumb:hover { background: #5a5a5a; }
+.tl-hgrip { position: absolute; top: 0; bottom: 0; width: 8px; border-radius: 5px; background: #6d6d6d; cursor: ew-resize; }
+.tl-hgrip.l { left: 0; }
+.tl-hgrip.r { right: 0; }
+.tl-empty { position: absolute; inset: 24px 0 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #777; }

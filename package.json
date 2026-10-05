@@ -1,0 +1,13 @@
+{
+  "name": "vid-edi",
+  "version": "1.0.0",
+  "description": "Vid-Edi Pro: a Premiere Pro-style non-linear video editor that runs entirely in the browser.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "check": "node scripts/check.mjs",
+    "test": "node test/smoke.mjs"
+  },
+  "license": "MIT"
+}
